@@ -157,6 +157,46 @@ class SONODE(NODE):
         out = self.df(t, x)
         return torch.cat((v, out), dim=1)
 
+class HessianDampingNODE(NODE):
+    def __init__(self, df, actv_h=None, gamma_guess=-3.0, beta_guess=-2.0, gamma_act='sigmoid', corr=-100, corrf=True, sign=1):
+        super().__init__(df)
+        # Momentum parameter gamma
+        self.gamma = Parameter([gamma_guess], frozen=False)
+        self.beta = Parameter([beta_guess], frozen=False)
+        self.gammaact = nn.Sigmoid() if gamma_act == 'sigmoid' else gamma_act
+        self.corr = Parameter([corr], frozen=corrf)
+        self.sp = nn.Softplus()
+        self.sign = sign # Sign of df
+        self.actv_h = nn.Identity() if actv_h is None else actv_h # Activation for dh, GHBNODE only
+
+    def forward(self, t, x):
+        """
+        Compute [theta' m' v'] with Hessian Damping
+        $$ h' = -m $$
+        $$ m' = sign * df - gamma * m - beta ddf'*m $$
+        based on paper https://www.jmlr.org/papers/volume21/18-808/18-808.pdf
+        :param t: time, shape [1]
+        :param x: [theta m], shape [batch, 2, dim]
+        :return: [theta' m'], shape [batch, 2, dim]
+        """
+        self.nfe += 1
+        h, m = torch.split(x, 1, dim=1)
+        dh = self.actv_h(- m)
+
+        ddf = torch.autograd.functional.jacobian(self.df, (t, h))[1]
+
+        dm = self.df(t, h) * self.sign - self.gammaact(self.gamma()) * m - self.beta() * torch.einsum('bcjbcj,bcj->bcj', ddf, m)
+
+        dm = dm + self.sp(self.corr()) * h
+        out = torch.cat((dh, dm), dim=1)
+        if self.elem_t is None:
+            return out
+        else:
+            return self.elem_t * out
+
+    def update(self, elem_t):
+        self.elem_t = elem_t.view(*elem_t.shape, 1, 1)
+
 
 class HeavyBallNODE(NODE):
     def __init__(self, df, actv_h=None, gamma_guess=-3.0, gamma_act='sigmoid', corr=-100, corrf=True, sign=1):

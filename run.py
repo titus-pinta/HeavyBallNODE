@@ -7,6 +7,7 @@ run_pv = {
     'anode': anode_rnn_pv.main,
     'sonode': sonode_rnn_pv.main,
     'hbnode': hbnode_rnn_pv.main,
+    'hdnode': hdnode_rnn_pv.main,
     'ghbnode': ghbnode_rnn_pv.main,
 }
 
