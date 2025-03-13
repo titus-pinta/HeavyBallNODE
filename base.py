@@ -4,7 +4,13 @@ from torch import nn
 from torchdiffeq import odeint_adjoint
 
 from basehelper import *
+import pdb
 
+def make_pair(f):
+    def inner(t, h):
+        result = f(t, h)
+        return result, result
+    return inner
 
 class Tinvariant_NLayerNN(NLayerNN):
     def forward(self, t, x):
@@ -183,9 +189,18 @@ class HessianDampingNODE(NODE):
         h, m = torch.split(x, 1, dim=1)
         dh = self.actv_h(- m)
 
-        ddf = torch.autograd.functional.jacobian(self.df, (t, h))[1]
+        with torch.autograd.forward_ad.dual_level():
+            breakpoint()
+            inp = torch.autograd.forward_ad.make_dual(h, m)
+            test = torch.autograd.forward_ad.unpack_dual(inp).tangent
+            print(h)
+            h.requiers_grad()
+            print(m)
+            print(inp)
+            oup = self.df(t, inp)
+            df, ddf = torch.autograd.forward_ad.unpack_dual(oup)
 
-        dm = self.df(t, h) * self.sign - self.gammaact(self.gamma()) * m - self.beta() * torch.einsum('bcjbcj,bcj->bcj', ddf, m)
+        dm = df * self.sign - self.gammaact(self.gamma()) * m - self.beta() * ddf
 
         dm = dm + self.sp(self.corr()) * h
         out = torch.cat((dh, dm), dim=1)

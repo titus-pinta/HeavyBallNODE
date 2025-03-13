@@ -21,6 +21,7 @@ def trainpv(model, fname, mname, niter=500, lr_dict=None, gradrec=None, pre_shri
     criteria = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr_dict[0])
     print('Number of Parameters: {}'.format(count_parameters(model)))
+    print('Running on: {}'.format('CUDA' if next(model.parameters()).is_cuda else 'CPU'))
 
     for epoch in range(niter):
 

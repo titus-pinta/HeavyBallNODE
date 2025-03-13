@@ -3,7 +3,7 @@ from base import *
 from odelstm_data import Walker2dImitationData
 
 seqlen = 64
-data = Walker2dImitationData(seq_len=seqlen, device=0)
+data = Walker2dImitationData(seq_len=seqlen, device='cpu')
 
 
 class tempf(nn.Module):
